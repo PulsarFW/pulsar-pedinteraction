@@ -12,18 +12,11 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Install zip
-        run: sudo apt install zip
-
       - name: Get latest code
         uses: actions/checkout@v4
 
       - name: Bundle files
-        run: |
-          mkdir -p ./temp/pulsar-pedinteraction
-          cp ./{README.md,fxmanifest.lua} ./temp/pulsar-pedinteraction
-          cp -r ./{client,server} ./temp/pulsar-pedinteraction
-          cd ./temp && zip -r ../pulsar-pedinteraction.zip ./pulsar-pedinteraction
+        run: zip -r pulsar-pedinteraction.zip . -x '*/.github/*' -x '*/node_modules/*'
 
       - name: Create release
         uses: softprops/action-gh-release@v2
