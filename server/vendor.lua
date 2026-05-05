@@ -55,7 +55,7 @@ AddEventHandler('onResourceStart', function(resource)
 
           local pState = Player(source).state
           local cStates = char:GetData("States") or {}
-          local hasVpn = exports.ox_inventory:ItemsHas(char:GetData("SID"), 1, 'vpn', 1)
+          local hasVpn = exports.ox_inventory:ItemsHas(char:GetData("SID"), 'vpn', 1)
           local vendorSales = char:GetData("Vendor") or {}
 
           if _created[data] and not _illegalBlacklist[pState.onDuty or ""] then
@@ -143,7 +143,7 @@ AddEventHandler('onResourceStart', function(resource)
             local cStates = char:GetData("States") or {}
             local vendorSales = char:GetData("Vendor") or {}
 
-            local hasVpn = exports.ox_inventory:ItemsHas(char:GetData("SID"), 1, 'vpn', 1)
+            local hasVpn = exports.ox_inventory:ItemsHas(char:GetData("SID"), 'vpn', 1)
             local itemData = _created[data.id].items[data.index]
 
             if _created[data.id] and not _illegalBlacklist[pState.onDuty or ""] then
