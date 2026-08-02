@@ -14,7 +14,7 @@ function StartRestockThread()
 					end
 
 					v.restockTime = os.time() + v.restock
-					exports['pulsar-core']:LoggerInfo("Vendor", string.format("Vendor ^3%s^7 Restocked", k))
+					plsr.Logger:Info("Vendor", string.format("Vendor ^3%s^7 Restocked", k))
 				end
 			end
 

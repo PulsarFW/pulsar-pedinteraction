@@ -8,37 +8,40 @@ RegisterNetEvent("Vendor:Client:Set", function(vendors)
 		}
 
 		if v.type == "ped" then
-			exports['pulsar-pedinteraction']:Add(v.id, v.model, v.position.coords, v.position.heading, 50.0, {
-					{
-						icon = v.iconOverride or "fas fa-question",
-						text = v.labelOverride or "Buy Items",
-						minDist = 2.0,
-						onSelect = function()
-							TriggerEvent("Vendor:Client:GetItems", v.id)
-						end,
+			plsr.PedInteraction:Add(v.id, v.model, v.position.coords, v.position.heading, 50.0, {
+				{
+					icon = v.iconOverride or "question",
+					text = v.labelOverride or "Buy Items",
+					event = "Vendor:Client:GetItems",
+					data = {
+						id = v.id,
 					},
-				}, v.iconOverride or "fas fa-question", v.position.scenario or false, v.position.anim or nil,
-				v.position.component or nil)
+					minDist = 2.0,
+				},
+			}, v.iconOverride or "question", v.position.scenario or false, v.position.anim or nil)
 		elseif v.type == "poly" then
-			exports.ox_target:addBoxZone({
-				id = v.id,
-				coords = v.position.coords,
-				size = vector3(v.position.length, v.position.width, 2.0),
-				rotation = v.position.options.heading or 0,
-				debug = false,
-				minZ = v.position.options.minZ,
-				maxZ = v.position.options.maxZ,
-				options = {
+			plsr.Targeting.Zones:AddBox(
+				v.id,
+				v.iconOverride or "question",
+				v.position.coords,
+				v.position.length,
+				v.position.width,
+				v.position.options,
+				{
 					{
-						icon = v.iconOverride or "fas fa-question",
-						label = v.labelOverride or "Buy Items",
-						distance = 2.0,
-						onSelect = function()
-							TriggerEvent("Vendor:Client:GetItems", v.id)
-						end,
+						icon = v.iconOverride or "question",
+						text = v.labelOverride or "Buy Items",
+						event = "Vendor:Client:GetItems",
+						data = {
+							id = v.id,
+						},
+						minDist = 2.0,
+						jobs = false,
 					},
-				}
-			})
+				},
+				3.0,
+				true
+			)
 		end
 	end
 end)
@@ -46,7 +49,7 @@ end)
 RegisterNetEvent(
 	"Vendor:Client:Add",
 	function(id, name, type, model, position, iconOverride, labelOverride, isUnique, isGlobalUnique)
-		if LocalPlayer.state.loggedIn then
+		if plsr.State.flags.loggedIn then
 			_created[id] = {
 				name = name,
 				type = type,
@@ -55,50 +58,52 @@ RegisterNetEvent(
 			}
 
 			if type == "ped" then
-				exports['pulsar-pedinteraction']:Add(id, model, position.coords, position.heading, 50.0, {
+				plsr.PedInteraction:Add(id, model, position.coords, position.heading, 50.0, {
 					{
-						icon = iconOverride or "fas fa-question",
+						icon = iconOverride or "question",
 						text = labelOverride or "Buy Items",
+						event = "Vendor:Client:GetItems",
+						data = {
+							id = id,
+						},
 						minDist = 2.0,
 						jobs = false,
-						onSelect = function()
-							TriggerEvent("Vendor:Client:GetItems", id)
-						end,
 					},
-				}, iconOverride or "fas fa-question", position.scenario or false, position.anim or false)
+				}, iconOverride or "question", position.scenario or false, position.anim or false)
 			elseif type == "poly" then
-				exports.ox_target:addBoxZone({
-					id = id,
-					coords = position.coords,
-					size = vector3(position.length, position.width, 2.0),
-					rotation = position.options.heading or 0,
-					debug = false,
-					minZ = position.options.minZ,
-					maxZ = position.options.maxZ,
-					options = {
+				plsr.Targeting.Zones:AddBox(
+					id,
+					iconOverride or "question",
+					position.coords,
+					position.length,
+					position.width,
+					position.options,
+					{
 						{
-							icon = iconOverride or "fas fa-question",
-							label = labelOverride or "Buy Items",
-							distance = 2.0,
-							onSelect = function()
-								TriggerEvent("Vendor:Client:GetItems", id)
-							end,
+							icon = iconOverride or "question",
+							text = labelOverride or "Buy Items",
+							event = "Vendor:Client:GetItems",
+							data = {
+								id = id,
+							},
+							minDist = 2.0,
+							jobs = false,
 						},
-					}
-				})
+					},
+					3.0,
+					true
+				)
 			end
 		end
 	end
 )
 
 RegisterNetEvent("Vendor:Client:Remove", function(id)
-	if LocalPlayer.state.loggedIn then
+	if plsr.State.flags.loggedIn then
 		if _created[id].type == "ped" then
-			exports['pulsar-pedinteraction']:Remove(id)
+			plsr.PedInteraction:Remove(id)
 		elseif _created[id].type == "poly" then
-			if exports.ox_target:zoneExists(id) then
-				exports.ox_target:removeZone(id)
-			end
+			plsr.Targeting.Zones:RemoveZone(id)
 		end
 
 		_created[id] = nil
@@ -106,21 +111,19 @@ RegisterNetEvent("Vendor:Client:Remove", function(id)
 end)
 
 AddEventHandler("Vendor:Client:GetItems", function(entity, data)
-	-- Handle both direct ID parameter and args data
-	local vendorId = data and data.id or entity
-	exports["pulsar-core"]:ServerCallback("Vendor:GetItems", vendorId, function(items)
+	plsr.Callbacks:ServerCallback("Vendor:GetItems", data.id, function(items)
 		local itemList = {}
 
 		if #items > 0 then
 			for k, v in ipairs(items) do
-				local itemData = exports.ox_inventory:ItemsGetData(v.item)
+				local itemData = plsr.Inventory.Items:GetData(v.item)
 				if v.delayed then
 					table.insert(itemList, {
 						label = itemData.label,
 						description = "Not For Sale Yet",
 					})
 				elseif v.qty == -1 or v.qty > 0 then
-					local stockStr = _created[vendorId].isUnique and "Stock: 1 Per Person, Per Tsunami"
+					local stockStr = _created[data.id].isUnique and "Stock: 1 Per Person, Per Tsunami"
 						or (v.qty == -1 and "Stock: ∞" or string.format("Stock: %s", v.qty))
 					local priceStr = v.coin ~= nil and string.format("%s $%s", v.price, v.coin)
 						or string.format("$%s", v.price)
@@ -131,7 +134,7 @@ AddEventHandler("Vendor:Client:GetItems", function(entity, data)
 						description = descStr,
 						event = "Vendor:Client:BuyItem",
 						data = {
-							id = vendorId,
+							id = data.id,
 							index = v.index,
 						},
 					})
@@ -150,9 +153,9 @@ AddEventHandler("Vendor:Client:GetItems", function(entity, data)
 			})
 		end
 
-		exports['pulsar-hud']:ListMenuShow({
+		plsr.ListMenu:Show({
 			main = {
-				label = _created[vendorId].name,
+				label = _created[data.id].name,
 				items = itemList,
 			},
 		})
@@ -160,5 +163,5 @@ AddEventHandler("Vendor:Client:GetItems", function(entity, data)
 end)
 
 AddEventHandler("Vendor:Client:BuyItem", function(data)
-	exports["pulsar-core"]:ServerCallback("Vendor:BuyItem", data)
+	plsr.Callbacks:ServerCallback("Vendor:BuyItem", data)
 end)

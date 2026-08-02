@@ -3,15 +3,9 @@ _characterLoaded, GLOBAL_PED = false, nil
 _interactionPeds = {}
 _spawnedInteractionPeds = {}
 
--- AddEventHandler('onClientResourceStart', function(resource)
--- 	if resource == GetCurrentResourceName() then
--- 		Wait(1000)
--- 		exports['pulsar-pedinteraction']:Add('fuck', `a_m_y_soucent_04`, vector3(-810.171, -1311.092, 4.000), 332.419,
--- 			50.0, {
--- 				{ icon = 'boxes-stacked', text = 'F', event = 'F', data = {}, minDist = 2.0, jobs = false },
--- 			})
--- 	end
--- end)
+-- plsr.PedInteraction:Add('fuck', `a_m_y_soucent_04`, vector3(-810.171, -1311.092, 4.000), 332.419, 50.0, {
+--     { icon = 'boxes-stacked', text = 'F', event = 'F', data = {}, minDist = 2.0, jobs = false },
+-- })
 
 RegisterNetEvent("Characters:Client:Spawn")
 AddEventHandler("Characters:Client:Spawn", function()
@@ -38,12 +32,12 @@ AddEventHandler("Characters:Client:Spawn", function()
 						)
 					elseif not inRange and _spawnedInteractionPeds[k] then
 						DeletePed(_spawnedInteractionPeds[k])
-						exports.ox_target:removeLocalEntity(_spawnedInteractionPeds[k])
+						plsr.Targeting:RemovePed(_spawnedInteractionPeds[k])
 						_spawnedInteractionPeds[k] = nil
 					end
 				elseif _spawnedInteractionPeds[k] then
 					DeletePed(_spawnedInteractionPeds[k])
-					exports.ox_target:removeLocalEntity(_spawnedInteractionPeds[k])
+					plsr.Targeting:RemovePed(_spawnedInteractionPeds[k])
 					_spawnedInteractionPeds[k] = nil
 				end
 			end
@@ -62,63 +56,65 @@ AddEventHandler("Characters:Client:Logout", function()
 	_spawnedInteractionPeds = {}
 end)
 
-exports("Add", function(id, model, coords, heading, range, menu, icon, scenario, enabled, anim, component)
-	if id and model and type(coords) == "vector3" and type(heading) == "number" then
-		if enabled == nil then
-			enabled = true
+_pedShit = {
+	Add = function(self, id, model, coords, heading, range, menu, icon, scenario, enabled, anim, component)
+		if id and model and type(coords) == "vector3" and type(heading) == "number" then
+			if enabled == nil then
+				enabled = true
+			end
+
+			if type(model) == "string" then
+				model = GetHashKey(model)
+			end
+
+			if not range then
+				range = 50.0
+			end
+
+			if not IsModelValid(model) or not IsModelAPed(model) then
+				plsr.Logger:Error("PedInteraction", "Failed to Add Ped ID: " .. id .. " - It's Model is Invalid")
+				return
+			end
+
+			_interactionPeds[id] = {
+				enabled = enabled,
+				range = range,
+				model = model,
+				coords = coords,
+				heading = heading,
+				icon = icon,
+				menu = menu,
+				scenario = scenario,
+				anim = anim,
+				component = component,
+			}
 		end
-
-		if type(model) == "string" then
-			model = GetHashKey(model)
+	end,
+	Toggle = function(self, id, enabled)
+		if _interactionPeds[id] then
+			_interactionPeds[id].enabled = enabled
 		end
-
-		if not range then
-			range = 50.0
+	end,
+	Remove = function(self, id)
+		if _interactionPeds[id] then
+			_interactionPeds[id] = nil
+			if _spawnedInteractionPeds[id] then
+				DeleteEntity(_spawnedInteractionPeds[id])
+				plsr.Targeting:RemovePed(_spawnedInteractionPeds[id])
+				_spawnedInteractionPeds[id] = nil
+			end
 		end
-
-		if not IsModelValid(model) or not IsModelAPed(model) then
-			exports['pulsar-core']:LoggerError("PedInteraction",
-				"Failed to Add Ped ID: " .. id .. " - It's Model is Invalid")
-			return
-		end
-
-		_interactionPeds[id] = {
-			enabled = enabled,
-			range = range,
-			model = model,
-			coords = coords,
-			heading = heading,
-			icon = icon,
-			menu = menu,
-			scenario = scenario,
-			anim = anim,
-			component = component,
-		}
-	end
-end)
-
-exports("Toggle", function(id, enabled)
-	if _interactionPeds[id] then
-		_interactionPeds[id].enabled = enabled
-	end
-end)
-
-exports("Remove", function(id)
-	if _interactionPeds[id] then
-		_interactionPeds[id] = nil
+	end,
+	GetPed = function(self, id)
 		if _spawnedInteractionPeds[id] then
-			DeleteEntity(_spawnedInteractionPeds[id])
-			exports.ox_target:removeLocalEntity(_spawnedInteractionPeds[id])
-			_spawnedInteractionPeds[id] = nil
+			return _spawnedInteractionPeds[id]
 		end
-	end
-end)
+		return false
+	end,
+}
 
-exports("GetPed", function(id)
-	if _spawnedInteractionPeds[id] then
-		return _spawnedInteractionPeds[id]
-	end
-	return false
+AddEventHandler("Proxy:Shared:RegisterReady", function()
+	exports["pulsar_core"]:RegisterComponent("PedInteraction", _pedShit)
 end)
 
 function CreateDumbAssPed(model, coords, heading, menu, icon, scenario, anim, component)
@@ -173,34 +169,10 @@ function CreateDumbAssPed(model, coords, heading, menu, icon, scenario, anim, co
 	end
 
 	if menu then
-		local oxOptions = {}
-		for i, option in ipairs(menu) do
-			local oxOption = {
-				label = option.label or option.text,
-				icon = option.icon or "fas fa-shop",
-				distance = option.distance or option.minDist or 2.0,
-				groups = option.groups or nil,
-				permissionKey = option.permissionKey or nil,
-				reqDuty = option.reqDuty or false,
-				workplace = option.workplace or nil,
-				tempjob = option.tempjob or nil,
-				rep = option.rep or nil,
-				onSelect = function()
-					if option.event then
-						TriggerEvent(option.event, (option.data or {}))
-					else
-						option.onSelect()
-					end
-				end,
-				canInteract = option.isEnabled or function()
-					return true
-				end,
-			}
-
-			table.insert(oxOptions, oxOption)
+		if not icon then
+			icon = "person-sign"
 		end
-
-		exports.ox_target:addLocalEntity(ped, oxOptions)
+		plsr.Targeting:AddPed(ped, icon, menu)
 	end
 
 	return ped
